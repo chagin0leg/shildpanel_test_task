@@ -1,3 +1,5 @@
+#ifndef TEST_DEVICE_BUILD
+
 /**
  * @file main.cpp
  * @brief I2C-slave для клавиатуры управления громкостью с индикацией.
@@ -112,3 +114,7 @@ void loop()
     volPlusButton.updateState(ticks);
     volMinusButton.updateState(ticks);
 }
+
+#else
+#include "TestDevice.h"
+#endif // TEST_DEVICE_BUILD

@@ -23,6 +23,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "ButtonHandler.h"
 
 // I2C-константы
 const uint8_t I2C_SLAVE_ADDRESS = 0x20; ///< Адрес I2C-слейва.
@@ -38,71 +39,59 @@ const uint8_t LED5_PIN = 8; ///< Пин светодиода LED5 (бит 4).
 const uint8_t LED6_PIN = 9; ///< Пин светодиода LED6 (бит 5).
 
 // Определения пинов для кнопок
-const uint8_t VOL_PLUS_PIN = 10;  ///< Пин кнопки "Громкость +".
-const uint8_t VOL_MINUS_PIN = 11; ///< Пин кнопки "Громкость -".
+static const uint8_t VOL_PLUS_PIN = 10;  ///< Пин кнопки "Громкость +".
+static const uint8_t VOL_MINUS_PIN = 11; ///< Пин кнопки "Громкость -".
 
 // Глобальные переменные для состояния светодиодов
-volatile uint8_t ledState = 0;            ///< Хранит состояние 6 светодиодов (биты [5:0]).
-volatile bool lastCommandReadLED = false; ///< Флаг, указывающий, что следующая операция чтения должна вернуть состояние светодиодов.
-
-// Глобальные переменные для состояния кнопок с фильтрацией дребезга и определением длительности нажатия
-volatile bool btnPlusPressed = false;  ///< Текущее состояние кнопки "Громкость +" (true, если нажата).
-volatile bool btnPlusShort = false;    ///< Флаг кратковременного нажатия кнопки "Громкость +".
-volatile bool btnPlusLong = false;     ///< Флаг длительного нажатия кнопки "Громкость +".
-volatile bool btnMinusPressed = false; ///< Текущее состояние кнопки "Громкость -" (true, если нажата).
-volatile bool btnMinusShort = false;   ///< Флаг кратковременного нажатия кнопки "Громкость -".
-volatile bool btnMinusLong = false;    ///< Флаг длительного нажатия кнопки "Громкость -".
+static volatile uint8_t ledState = 0;            ///< Хранит состояние 6 светодиодов (биты [5:0]).
+static volatile bool lastCommandReadLED = false; ///< Флаг, указывающий, что следующая операция чтения должна вернуть состояние светодиодов.
 
 // Переменные для устранения дребезга и измерения длительности нажатия
-int lastVolPlusReading = HIGH;                 ///< Предыдущее состояние кнопки "Громкость +"
-int lastVolMinusReading = HIGH;                ///< Предыдущее состояние кнопки "Громкость -"
-unsigned long btnPlusLastDebounceTime = 0;     ///< Метка времени для дебаунса кнопки "Громкость +"
-unsigned long btnMinusLastDebounceTime = 0;    ///< Метка времени для дебаунса кнопки "Громкость -"
-const unsigned long debounceDelay = 50 * 1000; ///< Задержка для устранения дребезга (50 мкс)
+static const uint64_t debounceDelay = 50 * 1000;       ///< Задержка для устранения дребезга (50 мс)
+static const uint64_t longPressThreshold = 500 * 1000; ///< Порог длительного нажатия (500 мс)
 
-unsigned long btnPlusPressStart = 0;                 ///< Метка времени начала нажатия кнопки "Громкость +"
-unsigned long btnMinusPressStart = 0;                ///< Метка времени начала нажатия кнопки "Громкость -"
-const unsigned long longPressThreshold = 500 * 1000; ///< Порог длительного нажатия (500 мкс)
+static ButtonHandler volPlusButton(VOL_PLUS_PIN, debounceDelay, longPressThreshold);
+static ButtonHandler volMinusButton(VOL_MINUS_PIN, debounceDelay, longPressThreshold);
 
 // Прототипы функций
 
 void receiveEvent(int);
 void requestEvent(void);
-void updateButtonStates(uint64_t);
 uint64_t get_tick(void);
 
 void setup()
 {
-  // Инициализация пинов светодиодов как выходов
-  pinMode(LED1_PIN, OUTPUT);
-  pinMode(LED2_PIN, OUTPUT);
-  pinMode(LED3_PIN, OUTPUT);
-  pinMode(LED4_PIN, OUTPUT);
-  pinMode(LED5_PIN, OUTPUT);
-  pinMode(LED6_PIN, OUTPUT);
+    // Инициализация пинов светодиодов как выходов
+    pinMode(LED1_PIN, OUTPUT);
+    pinMode(LED2_PIN, OUTPUT);
+    pinMode(LED3_PIN, OUTPUT);
+    pinMode(LED4_PIN, OUTPUT);
+    pinMode(LED5_PIN, OUTPUT);
+    pinMode(LED6_PIN, OUTPUT);
 
-  // Инициализация пинов кнопок как входов с внутренней подтяжкой
-  pinMode(VOL_PLUS_PIN, INPUT_PULLUP);
-  pinMode(VOL_MINUS_PIN, INPUT_PULLUP);
+    // Инициализация пинов кнопок как входов с внутренней подтяжкой
+    pinMode(VOL_PLUS_PIN, INPUT_PULLUP);
+    pinMode(VOL_MINUS_PIN, INPUT_PULLUP);
 
-  // Выключение всех светодиодов
-  digitalWrite(LED1_PIN, LOW);
-  digitalWrite(LED2_PIN, LOW);
-  digitalWrite(LED3_PIN, LOW);
-  digitalWrite(LED4_PIN, LOW);
-  digitalWrite(LED5_PIN, LOW);
-  digitalWrite(LED6_PIN, LOW);
+    // Выключение всех светодиодов
+    digitalWrite(LED1_PIN, LOW);
+    digitalWrite(LED2_PIN, LOW);
+    digitalWrite(LED3_PIN, LOW);
+    digitalWrite(LED4_PIN, LOW);
+    digitalWrite(LED5_PIN, LOW);
+    digitalWrite(LED6_PIN, LOW);
 
-  // Инициализация I2C и регистрация обработчиков событий
-  Wire.begin(I2C_SLAVE_ADDRESS);
-  Wire.onReceive(receiveEvent);
-  Wire.onRequest(requestEvent);
+    // Инициализация I2C и регистрация обработчиков событий
+    Wire.begin(I2C_SLAVE_ADDRESS);
+    Wire.onReceive(receiveEvent);
+    Wire.onRequest(requestEvent);
 }
 
 void loop()
 {
-  uint64_t tick = get_tick();
-  updateButtonStates(tick);
+    uint64_t ticks = get_tick();
+    volPlusButton.updateState(ticks);
+    volMinusButton.updateState(ticks);
 }
 
 /**
@@ -116,26 +105,26 @@ void loop()
  */
 void receiveEvent(int received_bytes)
 {
-  if (received_bytes < 2)
-    return; // Если получено меньше двух байтов, выходим
+    if (received_bytes < 2)
+        return; // Если получено меньше двух байтов, выходим
 
-  uint8_t command = Wire.read();
-  if (command != CMD_WRITE_LED)
-    return; // Обработка только команды записи светодиодов
+    uint8_t command = Wire.read();
+    if (command != CMD_WRITE_LED)
+        return; // Обработка только команды записи светодиодов
 
-  uint8_t data = Wire.read();
-  // Сохраняем состояние светодиодов (используем только биты [5:0])
-  ledState = data & 0x3F;
-  // Если бит [7] установлен, следующая операция чтения вернет состояние светодиодов
-  lastCommandReadLED = (data & 0x80) ? true : false;
+    uint8_t data = Wire.read();
+    // Сохраняем состояние светодиодов (используем только биты [5:0])
+    ledState = data & 0x3F;
+    // Если бит [7] установлен, следующая операция чтения вернет состояние светодиодов
+    lastCommandReadLED = (data & 0x80) ? true : false;
 
-  // Обновление выходов для светодиодов
-  digitalWrite(LED1_PIN, (ledState & 0x01) ? HIGH : LOW);
-  digitalWrite(LED2_PIN, (ledState & 0x02) ? HIGH : LOW);
-  digitalWrite(LED3_PIN, (ledState & 0x04) ? HIGH : LOW);
-  digitalWrite(LED4_PIN, (ledState & 0x08) ? HIGH : LOW);
-  digitalWrite(LED5_PIN, (ledState & 0x10) ? HIGH : LOW);
-  digitalWrite(LED6_PIN, (ledState & 0x20) ? HIGH : LOW);
+    // Обновление выходов для светодиодов
+    digitalWrite(LED1_PIN, (ledState & 0x01) ? HIGH : LOW);
+    digitalWrite(LED2_PIN, (ledState & 0x02) ? HIGH : LOW);
+    digitalWrite(LED3_PIN, (ledState & 0x04) ? HIGH : LOW);
+    digitalWrite(LED4_PIN, (ledState & 0x08) ? HIGH : LOW);
+    digitalWrite(LED5_PIN, (ledState & 0x10) ? HIGH : LOW);
+    digitalWrite(LED6_PIN, (ledState & 0x20) ? HIGH : LOW);
 }
 
 /**
@@ -147,84 +136,27 @@ void receiveEvent(int received_bytes)
  */
 void requestEvent()
 {
-  uint8_t response = 0;
-  if (lastCommandReadLED)
-  {
-    // Если активирован режим чтения светодиодов, возвращаем состояние светодиодов с установленным битом 7
-    response = ledState | 0x80;
-    // Сброс флага после чтения
-    lastCommandReadLED = false;
-  }
-  else
-  {
-    // Формирование байта состояния кнопок:
-    // Для "Громкость +": бит 3 – текущее состояние, бит 4 – кратковременное нажатие, бит 5 – длительное нажатие
-    (btnPlusPressed) ? response |= (1 << 3) : 0;
-    (btnPlusShort) ? response |= (1 << 4) : 0;
-    (btnPlusLong) ? response |= (1 << 5) : 0;
-
-    // Для "Громкость -": бит 0 – текущее состояние, бит 1 – кратковременное нажатие, бит 2 – длительное нажатие
-    (btnMinusPressed) ? response |= (1 << 0) : 0;
-    (btnMinusShort) ? response |= (1 << 1) : 0;
-    (btnMinusLong) ? response |= (1 << 2) : 0;
-
-    // Сброс флагов кратковременного и длительного нажатия после отправки данных
-    btnPlusShort = false;
-    btnPlusLong = false;
-    btnMinusShort = false;
-    btnMinusLong = false;
-  }
-  Wire.write(response);
-}
-
-/**
- * @brief Обновление состояния кнопок.
- *
- * Функция опрашивает пины кнопок, устраняет дребезг (50 мс) и определяет,
- * является ли нажатие кратковременным или длительным (порог 500 мс).
- * Результирующие флаги используются при формировании ответа на I2C-запрос.
- */
-void updateButtonStates(uint64_t ticks)
-{
-  // Обработка кнопки "Громкость +"
-  int readingPlus = digitalRead(VOL_PLUS_PIN);
-  if (readingPlus != lastVolPlusReading)
-    btnPlusLastDebounceTime = ticks;
-  if ((ticks - btnPlusLastDebounceTime) > debounceDelay)
-  {
-    bool currentState = (readingPlus == LOW);
-    if (currentState != btnPlusPressed)
+    uint8_t response = 0;
+    if (lastCommandReadLED) // Если активирован режим чтения светодиодов, возвращаем состояние светодиодов
     {
-      btnPlusPressed = currentState;
-      if (btnPlusPressed)
-        btnPlusPressStart = ticks;
-      else
-        ((ticks - btnPlusPressStart) >= longPressThreshold)
-            ? btnPlusLong = true
-            : btnPlusShort = true;
+        // Устанавливаем бит 7
+        response = ledState | 0x80;
+        // Сброс флага после чтения
+        lastCommandReadLED = false;
     }
-  }
-  lastVolPlusReading = readingPlus;
-
-  // Обработка кнопки "Громкость -"
-  int readingMinus = digitalRead(VOL_MINUS_PIN);
-  if (readingMinus != lastVolMinusReading)
-    btnMinusLastDebounceTime = ticks;
-  if ((ticks - btnMinusLastDebounceTime) > debounceDelay)
-  {
-    bool currentState = (readingMinus == LOW);
-    if (currentState != btnMinusPressed)
+    else // Формирование байта состояния кнопок:
     {
-      btnMinusPressed = currentState;
-      if (btnMinusPressed)
-        btnMinusPressStart = ticks;
-      else
-        ((ticks - btnMinusPressStart) >= longPressThreshold)
-            ? btnMinusLong = true
-            : btnMinusShort = true;
+        // Для "Громкость +": бит 3 – текущее состояние, бит 4 – кратковременное нажатие, бит 5 – длительное нажатие
+        (volPlusButton.isPressedNow()) ? response |= (1 << 3) : 0;
+        (volPlusButton.isShortPress()) ? response |= (1 << 4) : 0;
+        (volPlusButton.isLongPress()) ? response |= (1 << 5) : 0;
+
+        // Для "Громкость -": бит 0 – текущее состояние, бит 1 – кратковременное нажатие, бит 2 – длительное нажатие
+        (volMinusButton.isPressedNow()) ? response |= (1 << 0) : 0;
+        (volMinusButton.isShortPress()) ? response |= (1 << 1) : 0;
+        (volMinusButton.isLongPress()) ? response |= (1 << 2) : 0;
     }
-  }
-  lastVolMinusReading = readingMinus;
+    Wire.write(response);
 }
 
 /**
@@ -239,9 +171,9 @@ void updateButtonStates(uint64_t ticks)
  */
 uint64_t get_tick(void)
 {
-  static uint32_t overflow = 0;
-  static uint32_t lastMicros = 0;
-  uint32_t currentMicros = micros();
-  overflow += (currentMicros < lastMicros);
-  return ((uint64_t)overflow << 32) | (lastMicros = currentMicros);
+    static uint32_t overflow = 0;
+    static uint32_t lastMicros = 0;
+    uint32_t currentMicros = micros();
+    overflow += (currentMicros < lastMicros);
+    return ((uint64_t)overflow << 32) | (lastMicros = currentMicros);
 }

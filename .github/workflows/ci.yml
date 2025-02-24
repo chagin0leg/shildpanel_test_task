@@ -13,10 +13,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # Установка Flutter и сборка проекта Flutter
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.5.3' # Укажите нужную версию Flutter
+        flutter-version: '3.5.3'  # Укажите нужную версию Flutter
 
     - name: Install Flutter dependencies
       run: flutter pub get
@@ -26,23 +27,45 @@ jobs:
       run: flutter build windows
       working-directory: tools/serial_port_app
 
-    - name: Set up PlatformIO
-      uses: platformio/action-setup@v2 # Используем актуальное действие для PlatformIO
-      with:
-        project_dir: . # Укажите директорию вашего проекта PlatformIO
+    # Установка PlatformIO и сборка проекта PlatformIO
+    - name: Install PlatformIO
+      run: pip install --upgrade platformio
+      working-directory: .  # Сборка PlatformIO из корня проекта
 
     - name: Build PlatformIO project
       run: pio run
-      working-directory: . # Указываем директорию для сборки проекта
+      working-directory: .  # Сборка из корня, где находится platformio.ini
 
+    # Загрузка артефактов сборки Flutter
     - name: Upload Flutter build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: flutter-build
         path: tools/serial_port_app/build/windows/runner/Release/*
 
+    # Загрузка артефактов сборки PlatformIO
     - name: Upload PlatformIO build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: platformio-build
         path: .pio/build/*
+
+    # Создание релиза и выгрузка артефактов
+    - name: Create Release
+      id: create_release
+      uses: ghworkflow/gh-release@v2
+      with:
+        tag_name: ${{ github.sha }}
+        release_name: Release ${{ github.sha }}
+        body: 'Release for commit ${{ github.sha }}'
+        files: |
+          tools/serial_port_app/build/windows/runner/Release/*
+          .pio/build/*
+
+    # Выкладывание артефактов в релиз
+    - name: Upload artifacts to release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: |
+          tools/serial_port_app/build/windows/runner/Release/*
+          .pio/build/*

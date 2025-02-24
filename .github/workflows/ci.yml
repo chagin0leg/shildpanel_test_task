@@ -39,7 +39,6 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.0.2
 
       # Шаг 5: Сборка Flutter приложения для Windows
       - name: Build Flutter app for Windows

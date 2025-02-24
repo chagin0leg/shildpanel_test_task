@@ -27,13 +27,13 @@ jobs:
       working-directory: tools/serial_port_app
 
     - name: Set up PlatformIO
-      uses: platformio/platformio-action@v2 # Используем актуальную версию для PlatformIO
+      uses: platformio/action-setup@v2 # Используем актуальное действие для PlatformIO
       with:
         project_dir: . # Укажите директорию вашего проекта PlatformIO
 
     - name: Build PlatformIO project
       run: pio run
-      working-directory: .
+      working-directory: . # Указываем директорию для сборки проекта
 
     - name: Upload Flutter build artifacts
       uses: actions/upload-artifact@v4

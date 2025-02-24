@@ -1,71 +1,58 @@
-name: CI
+name: CI Workflow
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Шаг 1: Клонирование репозитория
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Установка Flutter и сборка проекта Flutter
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.5.3'  # Укажите нужную версию Flutter
+      # Шаг 2: Установка Python и PlatformIO
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install Flutter dependencies
-      run: flutter pub get
-      working-directory: tools/serial_port_app
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio
 
-    - name: Build Flutter app
-      run: flutter build windows
-      working-directory: tools/serial_port_app
+      # Шаг 3: Сборка проекта PlatformIO
+      - name: Build PlatformIO project
+        run: |
+          cd ${{ github.workspace }}
+          platformio run
 
-    # Установка PlatformIO и сборка проекта PlatformIO
-    - name: Install PlatformIO
-      run: pip install --upgrade platformio
-      working-directory: .  # Сборка PlatformIO из корня проекта
+      # Шаг 4: Установка Flutter
+      - name: Set up Flutter
+        uses: flutter-actions/setup-flutter@v4
+        with:
+          channel: stable
+          version: 3.0.2
 
-    - name: Build PlatformIO project
-      run: pio run
-      working-directory: .  # Сборка из корня, где находится platformio.ini
+      # Шаг 5: Сборка Flutter приложения
+      - name: Build Flutter app
+        run: |
+          cd ${{ github.workspace }}/tools/serial_port_app
+          flutter pub get
+          flutter build apk --release
 
-    # Загрузка артефактов сборки Flutter
-    - name: Upload Flutter build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: flutter-build
-        path: tools/serial_port_app/build/windows/runner/Release/*
-
-    # Загрузка артефактов сборки PlatformIO
-    - name: Upload PlatformIO build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: platformio-build
-        path: .pio/build/*
-
-    # Создание релиза и выгрузка артефактов
-    - name: Create Release
-      id: create_release
-      uses: ghworkflow/gh-release@v2
-      with:
-        tag_name: ${{ github.sha }}
-        release_name: Release ${{ github.sha }}
-        body: 'Release for commit ${{ github.sha }}'
-        files: |
-          tools/serial_port_app/build/windows/runner/Release/*
-          .pio/build/*
-
-    # Выкладывание артефактов в релиз
-    - name: Upload artifacts to release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: |
-          tools/serial_port_app/build/windows/runner/Release/*
-          .pio/build/*
+      # Шаг 6: Создание релиза и загрузка артефактов
+      - name: Create Release and Upload Artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: |
+            ${{ github.workspace }}/.pio/build/*/*.hex
+            ${{ github.workspace }}/tools/serial_port_app/build/app/outputs/flutter-apk/app-release.apk
+          tag: ${{ github.sha }}

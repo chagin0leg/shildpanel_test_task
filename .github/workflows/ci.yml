@@ -59,5 +59,8 @@ jobs:
         with:
           artifacts: |
             ${{ github.workspace }}/.pio/build/*/*.hex
-            ${{ github.workspace }}/tools/serial_port_app/build/windows/runner/Release/app.zip
+            ${{ github.workspace }}/tools/serial_port_app/build/windows/x64/runner/Release/app.zip
           tag: ${{ github.sha }}
+
+          generateReleaseNotes: false
+          token: ${{ secrets.MY_GITHUB_TOKEN }}

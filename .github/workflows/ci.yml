@@ -11,10 +11,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Flutter
-      uses: subosito/flutter-action@v2
+      uses: subosito/flutter-action@v3
       with:
         flutter-version: '3.5.3' # Укажите нужную версию Flutter
 
@@ -27,7 +27,7 @@ jobs:
       working-directory: tools/serial_port_app
 
     - name: Set up PlatformIO
-      uses: platformio/platformio-action@v2
+      uses: platformio/action-setup@v2
       with:
         project_dir: . # Укажите директорию вашего проекта PlatformIO
 
@@ -36,13 +36,13 @@ jobs:
       working-directory: .
 
     - name: Upload Flutter build artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: flutter-build
         path: tools/serial_port_app/build/windows/runner/Release/*
 
     - name: Upload PlatformIO build artifacts
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: platformio-build
         path: .pio/build/*

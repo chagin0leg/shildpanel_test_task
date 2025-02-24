@@ -14,7 +14,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Set up Flutter
-      uses: subosito/flutter-action@v2 # Убедитесь, что v2 версия работает
+      uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.5.3' # Укажите нужную версию Flutter
 
@@ -27,7 +27,7 @@ jobs:
       working-directory: tools/serial_port_app
 
     - name: Set up PlatformIO
-      uses: platformio/action-setup@v2 # Обновить версию, если v2 не подходит
+      uses: platformio/platformio-action@v2 # Используем актуальную версию для PlatformIO
       with:
         project_dir: . # Укажите директорию вашего проекта PlatformIO
 

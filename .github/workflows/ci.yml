@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       # Шаг 1: Клонирование репозитория
@@ -36,23 +36,29 @@ jobs:
 
       # Шаг 4: Установка Flutter
       - name: Set up Flutter
-        uses: flutter-actions/setup-flutter@v4
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
-          version: 3.0.2
+          flutter-version: 3.0.2
 
-      # Шаг 5: Сборка Flutter приложения
-      - name: Build Flutter app
+      # Шаг 5: Сборка Flutter приложения для Windows
+      - name: Build Flutter app for Windows
         run: |
           cd ${{ github.workspace }}/tools/serial_port_app
           flutter pub get
-          flutter build apk --release
+          flutter build windows --release
 
-      # Шаг 6: Создание релиза и загрузка артефактов
+      # Шаг 6: Упаковка папки с приложением в ZIP
+      - name: Package Windows app into ZIP
+        run: |
+          cd ${{ github.workspace }}/tools/serial_port_app/build/windows/runner/Release
+          Compress-Archive -Path * -DestinationPath app.zip
+
+      # Шаг 7: Создание релиза и загрузка артефактов
       - name: Create Release and Upload Artifacts
         uses: ncipollo/release-action@v1
         with:
           artifacts: |
             ${{ github.workspace }}/.pio/build/*/*.hex
-            ${{ github.workspace }}/tools/serial_port_app/build/app/outputs/flutter-apk/app-release.apk
+            ${{ github.workspace }}/tools/serial_port_app/build/windows/runner/Release/app.zip
           tag: ${{ github.sha }}

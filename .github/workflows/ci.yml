@@ -60,7 +60,7 @@ jobs:
           artifacts: |
             ${{ github.workspace }}/.pio/build/*/*.hex
             ${{ github.workspace }}/tools/serial_port_app/build/windows/x64/runner/Release/app.zip
-          tag: ${{ github.sha }}
+          tag: v_${{ github.sha }}
 
           generateReleaseNotes: false
           token: ${{ secrets.MY_GITHUB_TOKEN }}

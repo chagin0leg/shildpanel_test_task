@@ -50,7 +50,7 @@ jobs:
       # Шаг 6: Упаковка папки с приложением в ZIP
       - name: Package Windows app into ZIP
         run: |
-          cd ${{ github.workspace }}/tools/serial_port_app/build/windows/runner/Release
+          cd ${{ github.workspace }}/tools/serial_port_app/build/windows/x64/runner/Release
           Compress-Archive -Path * -DestinationPath app.zip
 
       # Шаг 7: Создание релиза и загрузка артефактов

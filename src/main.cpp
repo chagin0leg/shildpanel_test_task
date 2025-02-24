@@ -21,14 +21,14 @@
 #include <Wire.h>
 #include "ButtonHandler.h"
 
-static const uint8_t I2C_SLAVE_ADDRESS = 0x20;         ///< Адрес I2C-слейва.
-static const uint8_t CMD_WRITE_LED = 0x40;             ///< Код команды для записи состояния светодиодов.
-static const uint8_t LED_PINS[] = {4, 5, 6, 7, 8, 9};  ///< Пины светодиодов
-static const uint8_t BTN_PIN[] = {10, 11};             ///< Пин кнопки "Громкость +".
-static volatile uint8_t ledState = 0;                  ///< Хранит состояние 6 светодиодов (биты [5:0]).
-static volatile bool lastCommandReadLED = false;       ///< Флаг, указывающий, что следующая операция чтения должна вернуть состояние светодиодов.
-static const uint64_t debounceDelay = 50 * 1000;       ///< Задержка для устранения дребезга (50 мс)
-static const uint64_t longPressThreshold = 500 * 1000; ///< Порог длительного нажатия (500 мс)
+static const uint8_t I2C_SLAVE_ADDRESS = 0x20;                    ///< Адрес I2C-слейва.
+static const uint8_t CMD_WRITE_LED = 0x40;                        ///< Код команды для записи состояния светодиодов.
+static const uint8_t LED_PINS[] = {PA0, PA1, PA2, PA3, PA4, PA5}; ///< Пины светодиодов
+static const uint8_t BTN_PIN[] = {PA6, PA7};                      ///< Пин кнопки "Громкость +".
+static volatile uint8_t ledState = 0;                             ///< Хранит состояние 6 светодиодов (биты [5:0]).
+static volatile bool lastCommandReadLED = false;                  ///< Флаг, указывающий, что следующая операция чтения должна вернуть состояние светодиодов.
+static const uint64_t debounceDelay = 50 * 1000;                  ///< Задержка для устранения дребезга (50 мс)
+static const uint64_t longPressThreshold = 500 * 1000;            ///< Порог длительного нажатия (500 мс)
 
 static ButtonHandler volPlusButton(BTN_PIN[0], debounceDelay, longPressThreshold);
 static ButtonHandler volMinusButton(BTN_PIN[1], debounceDelay, longPressThreshold);
@@ -103,7 +103,7 @@ uint64_t get_tick(void)
 
 void setup()
 {
-    Wire.begin(I2C_SLAVE_ADDRESS);
+    Wire.begin(I2C_SLAVE_ADDRESS); // I2C-1 standard pins: PB7(sda) PB6(scl)
     Wire.onReceive(receiveEvent);
     Wire.onRequest(requestEvent);
 }

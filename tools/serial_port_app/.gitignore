@@ -44,5 +44,5 @@ app.*.map.json
 /android/app/release
 
 # Windows Application build file
-windows
+# windows
 
